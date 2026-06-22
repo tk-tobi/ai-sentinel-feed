@@ -31,6 +31,10 @@ output "ingest_task_definition_arn" {
   value = module.ecs_ingest.task_definition_arn
 }
 
+output "ingest_task_security_group_id" {
+  value = module.ecs_ingest.task_security_group_id
+}
+
 output "ingest_log_group_name" {
   value = module.ecs_ingest.log_group_name
 }
