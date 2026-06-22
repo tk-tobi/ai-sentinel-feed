@@ -131,6 +131,10 @@ def _normalize_nvd(
             severity = label_severity
 
     tags = []
+    keyword = raw.get("search_keyword")
+    if keyword:
+        tags.extend(part.strip() for part in str(keyword).split(",") if part.strip())
+
     for weakness in cve.get("weaknesses", []):
         for desc in weakness.get("description", []):
             value = desc.get("value")
