@@ -53,3 +53,18 @@ CI (`.github/workflows/docker-publish.yml`) builds and pushes to GHCR on pushes 
 - **Ingest / Playwright** — run locally with Python for full re-scrape (`python -m sentinel.pipeline.ingest`)
 - The standalone `docker-compose.yml` (Postgres-only) remains for that dev workflow
 
+## Production images (AWS)
+
+| Dockerfile | Target | Command |
+|------------|--------|---------|
+| `Dockerfile.api` | App Runner (ECR) | `uvicorn sentinel.api.main:app` |
+| `Dockerfile.ingest` | ECS Fargate (ECR) | `python -m sentinel.pipeline.ingest --source all` |
+
+After `terraform apply`:
+
+```bash
+./infra/scripts/push_ecr.sh dev
+```
+
+See [`docs/production_prs.md`](../docs/production_prs.md) for the full production PR plan.
+

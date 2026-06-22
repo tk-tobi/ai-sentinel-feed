@@ -1,0 +1,2 @@
+# Production API image (App Runner) — no Postgres, no Streamlit
+-r requirements.docker.txt

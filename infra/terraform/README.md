@@ -53,10 +53,17 @@ See [TODO.md](../../../TODO.md) — AWS ↔ GCP equivalence table in the product
 
 ## After apply
 
-1. Build and push container images to ECR (ingest + API Dockerfiles — TBD in `docker/`).
-2. Run a one-off ECS task or local ingest pointed at RDS `DATABASE_URL` from `terraform output`.
-3. Deploy Streamlit Cloud with the same `DATABASE_URL` (or public API URL).
-4. Publish exports to HuggingFace Hub.
+1. Push production images to ECR:
+   ```bash
+   ./infra/scripts/push_ecr.sh dev
+   ```
+2. Redeploy App Runner to pick up the new API image (auto-deploy is off).
+3. Run a one-off ECS ingest task for RDS historical load (`scripts/historical_load_rds.sh`).
+4. Deploy Streamlit Cloud with `DATABASE_URL` or the public API URL.
+5. Publish exports to HuggingFace Hub.
+
+Production image definitions: `docker/Dockerfile.api`, `docker/Dockerfile.ingest`.  
+PR plan: [`docs/production_prs.md`](../../docs/production_prs.md).
 
 ## State
 
