@@ -11,6 +11,10 @@ RUN apt-get update \
         postgresql \
         postgresql-client \
         supervisor \
+    && PG_BIN="$(ls -d /usr/lib/postgresql/*/bin | head -1)" \
+    && for cmd in initdb pg_ctl psql pg_isready; do \
+         ln -sf "${PG_BIN}/${cmd}" /usr/local/bin/${cmd}; \
+       done \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

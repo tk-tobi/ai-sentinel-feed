@@ -4,27 +4,39 @@ set -euo pipefail
 PGDATA="${PGDATA:-/var/lib/postgresql/data}"
 export PGDATA
 
+PG_BIN="$(find /usr/lib/postgresql -maxdepth 3 -type f -name initdb -print -quit 2>/dev/null)"
+PG_BIN="$(dirname "${PG_BIN}")"
+if [[ ! -x "${PG_BIN}/initdb" ]]; then
+  echo "ERROR: PostgreSQL server binaries not found under /usr/lib/postgresql" >&2
+  exit 1
+fi
+export PATH="${PG_BIN}:${PATH}"
+
 mkdir -p "${PGDATA}"
 chown -R postgres:postgres "${PGDATA}"
+
+postgres_su() {
+  su postgres -c "$*"
+}
 
 start_postgres() {
   if [[ ! -f "${PGDATA}/PG_VERSION" ]]; then
     echo "==> Initializing PostgreSQL data directory"
-    su postgres -c "initdb -D ${PGDATA}"
-    su postgres -c "pg_ctl -D ${PGDATA} -o '-c listen_addresses=127.0.0.1' -w start"
-    su postgres -c "psql -v ON_ERROR_STOP=1 <<-SQL
+    postgres_su "${PG_BIN}/initdb -D ${PGDATA}"
+    postgres_su "${PG_BIN}/pg_ctl -D ${PGDATA} -o '-c listen_addresses=127.0.0.1' -w start"
+    postgres_su "${PG_BIN}/psql -v ON_ERROR_STOP=1 <<-SQL
 CREATE USER sentinel WITH PASSWORD 'sentinel' SUPERUSER;
 CREATE DATABASE sentinel OWNER sentinel;
 SQL"
-    su postgres -c "pg_ctl -D ${PGDATA} -m fast -w stop"
+    postgres_su "${PG_BIN}/pg_ctl -D ${PGDATA} -m fast -w stop"
   fi
 
   echo "==> Starting PostgreSQL"
-  su postgres -c "pg_ctl -D ${PGDATA} -o '-c listen_addresses=127.0.0.1' -w start"
+  postgres_su "${PG_BIN}/pg_ctl -D ${PGDATA} -o '-c listen_addresses=127.0.0.1' -w start"
 }
 
 stop_postgres() {
-  su postgres -c "pg_ctl -D ${PGDATA} -m fast -w stop" 2>/dev/null || true
+  postgres_su "${PG_BIN}/pg_ctl -D ${PGDATA} -m fast -w stop" 2>/dev/null || true
 }
 
 trap stop_postgres EXIT
