@@ -109,6 +109,11 @@ def test_normalize_aiid_sample_shape():
     assert record.raw["reports"][0]["report_number"] == 15
 
 
+def test_qualitative_harm_to_severity_coerces_non_string_values():
+    assert qualitative_harm_to_severity("privacy harm", float("nan")) == Severity.HIGH
+    assert qualitative_harm_to_severity(None, float("nan")) == Severity.INFORMATIONAL
+
+
 def test_normalize_aiaaic_sample_shape():
     raw = {
         "AIAAIC ID#": "AIAAIC2264",
@@ -128,6 +133,19 @@ def test_normalize_aiaaic_sample_shape():
     assert record.system == "Workplace monitoring"
     assert record.incident_date == date(2026, 1, 1)
     assert record.url == "https://example.com/story"
+
+
+def test_normalize_aiaaic_handles_float_taxonomy_fields():
+    raw = {
+        "AIAAIC ID#": "AIAAIC9999",
+        "Headline": "Algorithm caused wrongful arrest",
+        "External harm (taxonomy)": float("nan"),
+        "Consequence (taxonomy)": 3.0,
+        "Summary/links": "https://example.com/aiaaic-story",
+    }
+    record = normalize(raw, Source.AIAAIC, ingested_at=INGESTED_AT)
+    assert record.source_id == "AIAAIC9999"
+    assert record.severity == Severity.HIGH
 
 
 def test_parse_date_handles_partial_aiaaic_values():

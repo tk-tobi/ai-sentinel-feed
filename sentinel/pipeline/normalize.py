@@ -249,9 +249,9 @@ def _normalize_aiaaic(
     summary = _clean_optional(raw.get("Summary/links"))
 
     severity = qualitative_harm_to_severity(
-        raw.get("Headline"),
-        raw.get("External harm (taxonomy)"),
-        raw.get("Consequence (taxonomy)"),
+        _clean_optional(raw.get("Headline")),
+        _clean_optional(raw.get("External harm (taxonomy)")),
+        _clean_optional(raw.get("Consequence (taxonomy)")),
         summary,
     )
 

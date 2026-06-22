@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import math
+from typing import Any
+
 from sentinel.models import Severity
 
 CVSS_CRITICAL_MIN = 9.0
@@ -39,9 +42,22 @@ def cvss_label_to_severity(label: str | None) -> Severity | None:
     return mapping.get(label.upper())
 
 
-def qualitative_harm_to_severity(*texts: str | None) -> Severity:
+def _coerce_harm_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, float) and math.isnan(value):
+        return None
+    text = str(value).strip()
+    if not text or text.lower() == "nan":
+        return None
+    return text
+
+
+def qualitative_harm_to_severity(*texts: Any) -> Severity:
     """Heuristic mapping for AIID/AIAAIC qualitative harm descriptions."""
-    combined = " ".join(t for t in texts if t).lower()
+    combined = " ".join(
+        text for item in texts if (text := _coerce_harm_text(item))
+    ).lower()
     if not combined:
         return Severity.INFORMATIONAL
 
