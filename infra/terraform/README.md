@@ -16,8 +16,18 @@ Provisions AWS resources for **ai-sentinel-feed** production deployment:
 ## Prerequisites
 
 - [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.5
-- AWS CLI configured (`aws configure`)
+- AWS CLI configured (`aws login` or `aws configure`)
 - IAM permissions for RDS, S3, ECS, ECR, App Runner, Secrets Manager, EventBridge, IAM
+
+**Terraform + `aws login`:** The AWS provider does not read `aws login` sessions directly. Our scripts call `aws configure export-credentials` first. If you run `terraform` manually:
+
+```bash
+aws login
+eval "$(aws configure export-credentials --format env)"
+terraform plan
+```
+
+Set `aws_region` in `terraform.tfvars` to the region where you want resources (e.g. `us-east-2` if that is your default).
 
 ## Quick start (dev)
 
@@ -27,9 +37,16 @@ cd infra/terraform/environments/dev
 cp terraform.tfvars.example terraform.tfvars
 # Edit terraform.tfvars — set db_password, aws_region
 
-terraform init
-terraform plan
-terraform apply
+# From repo root (three phases: infra → ECR push → App Runner):
+./infra/scripts/apply.sh dev
+```
+
+`apply.sh` skips App Runner on the first pass so ECR can receive images before the service is created.
+
+**If App Runner already failed with `CREATE_FAILED`:**
+
+```bash
+./infra/scripts/finish_api_deploy.sh dev
 ```
 
 ## Teardown
@@ -53,13 +70,16 @@ See [TODO.md](../../../TODO.md) — AWS ↔ GCP equivalence table in the product
 
 ## After apply
 
-1. Push production images to ECR:
+1. Push production images to ECR (ingest image is large — use `--ingest-only` if API is already live):
    ```bash
-   ./infra/scripts/push_ecr.sh dev
+   ./infra/scripts/push_ecr.sh dev --ingest-only
    ```
-2. Redeploy App Runner to pick up the new API image (auto-deploy is off).
-3. Run a one-off ECS ingest task for RDS historical load (`scripts/historical_load_rds.sh`).
-4. Deploy Streamlit Cloud with `DATABASE_URL` or the public API URL.
+2. Redeploy App Runner after API image changes (`finish_api_deploy.sh` or `terraform apply -var=deploy_api_service=true`).
+3. Run historical load into RDS:
+   ```bash
+   ./scripts/historical_load_rds.sh dev
+   ```
+4. Deploy Streamlit Cloud with the public API URL or `DATABASE_URL`.
 5. Publish exports to HuggingFace Hub.
 
 Production image definitions: `docker/Dockerfile.api`, `docker/Dockerfile.ingest`.  

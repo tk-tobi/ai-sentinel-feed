@@ -87,31 +87,32 @@ flowchart LR
 
 
 
-### Production (AWS target)
+### Production (AWS — dev environment live)
 
+**API (App Runner):** `https://hkfxqsyja3.us-east-2.awsapprunner.com`  
+Health: `GET /health` → `{"status":"ok"}`
 
-| Layer            | Local (Docker)                       | Local (from source)                  | AWS (target)                       |
+| Layer            | Local (Docker)                       | Local (from source)                  | AWS (dev)                          |
 | ---------------- | ------------------------------------ | ------------------------------------ | ---------------------------------- |
-| App + DB         | **Single image** (GHCR)              | `docker compose` Postgres + Python   | RDS + App Runner + Streamlit Cloud |
-| Ingest scheduler | N/A (pre-seeded)                     | Manual / cron                        | **EventBridge**                    |
+| App + DB         | **Single image** (GHCR)              | `docker compose` Postgres + Python   | **RDS** + **App Runner**           |
+| Ingest scheduler | N/A (pre-seeded)                     | Manual / cron                        | **EventBridge** (daily)            |
 | Ingest compute   | N/A                                  | `python -m sentinel.pipeline.ingest` | **ECS Fargate** (Playwright image) |
 | Raw storage      | baked seed                           | `data/raw/`                          | **S3**                             |
 | Structured       | embedded Postgres                    | Docker Postgres                      | **RDS PostgreSQL**                 |
 | Exports          | —                                    | `data/exports/`                      | **S3**                             |
-| API              | `:8000` in container                 | `uvicorn`                            | **App Runner**                     |
-| Dashboard        | `:8501` in container                 | `streamlit run`                      | **Streamlit Community Cloud**      |
+| API              | `:8000` in container                 | `uvicorn`                            | **App Runner** ✓                   |
+| Dashboard        | `:8501` in container                 | `streamlit run`                      | Streamlit Cloud (planned)          |
 | Secrets          | defaults in image                    | `.env`                               | **Secrets Manager**                |
-| ML access        | —                                    | local JSONL                          | **HuggingFace Hub**                |
+| ML access        | —                                    | local JSONL                          | **HuggingFace Hub** (planned)      |
 
-
-Infrastructure is defined in `[infra/terraform/](infra/terraform/)`. Spin up and tear down:
+Infrastructure is defined in [`infra/terraform/`](infra/terraform/). Spin up and tear down:
 
 ```bash
-./infra/scripts/apply.sh dev      # terraform apply
+./infra/scripts/apply.sh dev      # infra → ECR push → App Runner
 ./infra/scripts/teardown.sh dev   # terraform destroy (dev-safe defaults)
 ```
 
-See `[infra/terraform/README.md](infra/terraform/README.md)` for details. Implementation status and go-live checklist live in `TODO.md` (local notes).
+See [`infra/terraform/README.md`](infra/terraform/README.md) for details.
 
 ---
 
@@ -318,18 +319,44 @@ DATABASE_URL=postgresql://sentinel:sentinel@localhost:5432/sentinel
 
 ## Production deployment
 
+| Component     | Service                   | Status (dev) |
+| ------------- | ------------------------- | ------------ |
+| Ingest job    | ECS Fargate + EventBridge | Provisioned; push ingest image + run historical load |
+| API           | AWS App Runner            | **Live** — see `terraform output api_service_url` |
+| Database      | RDS PostgreSQL            | Provisioned |
+| Raw / exports | S3                        | Provisioned |
+| Dashboard     | Streamlit Cloud           | Planned |
+| ML dataset    | HuggingFace Hub           | Planned |
 
-| Component     | Service                   |
-| ------------- | ------------------------- |
-| Ingest job    | ECS Fargate + EventBridge |
-| API           | AWS App Runner            |
-| Database      | RDS PostgreSQL            |
-| Raw / exports | S3                        |
-| Dashboard     | Streamlit Cloud           |
-| ML dataset    | HuggingFace Hub           |
+### Deploy workflow
 
+```bash
+# 1. Authenticate (required before terraform / ECR / ECS)
+aws login
+eval "$(aws configure export-credentials --format env)"
+
+# 2. Infrastructure + App Runner (from repo root)
+./infra/scripts/apply.sh dev
+# Or recover a partial deploy:
+./infra/scripts/finish_api_deploy.sh dev --skip-push
+
+# 3. Push container images (API already pushed if App Runner is live)
+./infra/scripts/push_ecr.sh dev              # both images
+./infra/scripts/push_ecr.sh dev --api-only   # API only
+./infra/scripts/push_ecr.sh dev --ingest-only  # ingest only (large Playwright image)
+
+# 4. Load historical data into RDS (one-off ECS task, ~30–90 min)
+./scripts/historical_load_rds.sh dev
+
+# 5. Verify
+curl "$(cd infra/terraform/environments/dev && terraform output -raw api_service_url)/health"
+curl "$(cd infra/terraform/environments/dev && terraform output -raw api_service_url)/incidents?page_size=1"
+```
 
 **Teardown (dev):** `./infra/scripts/teardown.sh dev` uses `skip_final_snapshot` and `force_destroy` on buckets.
+
+Image definitions: `docker/Dockerfile.api` (App Runner), `docker/Dockerfile.ingest` (ECS).  
+Detailed infra notes: [`infra/terraform/README.md`](infra/terraform/README.md).
 
 
 ---
@@ -339,7 +366,8 @@ DATABASE_URL=postgresql://sentinel:sentinel@localhost:5432/sentinel
 - Round 2 sources: GitHub Issues, HuggingFace Advisories, ArXiv, News/RSS
 - Richer ATLAS mapping (ML classifier, manual review queue for `unmapped`)
 - HuggingFace Hub publish with dataset card
-- S3 upload hooks in ingest; separate ECR images for ingest vs API in prod
+- S3 upload hooks in ingest pipeline
+- Streamlit Cloud dashboard wired to production API or RDS
 - API auth (API keys / IAM)
 - Cross-source deduplication (fuzzy match on title/date across AIID and AIAAIC)
 - Eval question sets and semantics visualization (UMAP / WizMap) from incident corpus
