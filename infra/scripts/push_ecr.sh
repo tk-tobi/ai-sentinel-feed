@@ -37,6 +37,10 @@ done
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TF_DIR="${ROOT_DIR}/infra/terraform/environments/${ENVIRONMENT}"
 
+# shellcheck disable=SC1091
+source "${ROOT_DIR}/infra/scripts/aws_env.sh"
+ensure_aws_credentials
+
 if [[ ! -d "${TF_DIR}" ]]; then
   echo "Unknown environment: ${ENVIRONMENT}" >&2
   exit 1
@@ -47,8 +51,13 @@ cd "${ROOT_DIR}"
 API_REPO="$(terraform -chdir="${TF_DIR}" output -raw api_ecr_repository_url)"
 INGEST_REPO="$(terraform -chdir="${TF_DIR}" output -raw ingest_ecr_repository_url)"
 
-if [[ -z "${AWS_REGION:-}" ]]; then
-  AWS_REGION="$(cd "${TF_DIR}" && terraform console <<< 'var.aws_region' 2>/dev/null | tr -d '"' || true)"
+# Region is embedded in the ECR URL (avoids terraform console warnings on partial state).
+ecr_region_from_url() {
+  echo "$1" | sed -E 's#.*\.ecr\.([^.]+)\.amazonaws\.com.*#\1#'
+}
+AWS_REGION="${AWS_REGION:-$(ecr_region_from_url "${API_REPO}")}"
+if [[ -z "${AWS_REGION}" || "${AWS_REGION}" == "${API_REPO}" ]]; then
+  AWS_REGION="$(terraform -chdir="${TF_DIR}" output -raw aws_region 2>/dev/null || true)"
 fi
 AWS_REGION="${AWS_REGION:-$(aws configure get region)}"
 
@@ -59,9 +68,23 @@ fi
 
 REGISTRY="${API_REPO%%/*}"
 
+if ! docker info >/dev/null 2>&1; then
+  echo "Docker is not running. Start Docker Desktop, wait until it is ready, then retry." >&2
+  exit 1
+fi
+
+echo "==> Fetching ECR login password (region ${AWS_REGION})"
+PASSWORD="$(aws ecr get-login-password --region "${AWS_REGION}")"
+if [[ -z "${PASSWORD}" ]]; then
+  echo "ECR login password was empty. Refresh AWS credentials:" >&2
+  echo "  aws login" >&2
+  echo '  eval "$(aws configure export-credentials --format env)"' >&2
+  exit 1
+fi
+
 echo "==> Logging in to ECR (${REGISTRY})"
-aws ecr get-login-password --region "${AWS_REGION}" \
-  | docker login --username AWS --password-stdin "${REGISTRY}"
+echo "${PASSWORD}" | docker login --username AWS --password-stdin "${REGISTRY}"
+echo "==> ECR login OK"
 
 if [[ "${PUSH_API}" -eq 1 ]]; then
   echo "==> Building API image -> ${API_REPO}:latest"
