@@ -14,6 +14,10 @@ ENVIRONMENT="${1:-dev}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TF_DIR="${ROOT_DIR}/infra/terraform/environments/${ENVIRONMENT}"
 
+# shellcheck disable=SC1091
+source "${ROOT_DIR}/infra/scripts/aws_env.sh"
+ensure_aws_credentials
+
 if [[ ! -d "${TF_DIR}" ]]; then
   echo "Unknown environment: ${ENVIRONMENT}" >&2
   exit 1
@@ -30,14 +34,17 @@ if [[ -z "${SG}" ]]; then
   exit 1
 fi
 
-# First private subnet from the dev VPC (matches main.tf default layout).
-SUBNET="$(aws ec2 describe-subnets \
-  --filters "Name=tag:Name,Values=*private*" \
-  --query 'Subnets[0].SubnetId' \
-  --output text)"
+# Default VPC subnet (matches terraform dev layout — assignPublicIp for ECR/NVD egress).
+SUBNET="${SUBNET_ID:-}"
+if [[ -z "${SUBNET}" ]]; then
+  SUBNET="$(aws ec2 describe-subnets \
+    --filters "Name=default-for-az,Values=true" \
+    --query 'Subnets[0].SubnetId' \
+    --output text)"
+fi
 
 if [[ -z "${SUBNET}" || "${SUBNET}" == "None" ]]; then
-  echo "Could not resolve a private subnet. Set SUBNET_ID and re-run." >&2
+  echo "Could not resolve a subnet. Export SUBNET_ID and re-run." >&2
   exit 1
 fi
 
@@ -58,8 +65,25 @@ TASK_ARN="$(aws ecs run-task \
 
 echo "Task ARN: ${TASK_ARN}"
 echo ""
-echo "Tail logs:"
 LOG_GROUP="$(terraform output -raw ingest_log_group_name)"
-echo "  aws logs tail ${LOG_GROUP} --follow"
+echo "Tail logs:"
+echo "  aws logs tail ${LOG_GROUP} --follow --region $(terraform output -raw aws_region)"
 echo ""
-echo "When complete, export JSONL from inside the task or add export to the ECS command."
+echo "Waiting for task to finish (this can take 30–90 minutes for a full historical load)..."
+aws ecs wait tasks-stopped --cluster "${CLUSTER}" --tasks "${TASK_ARN}"
+
+EXIT_CODE="$(aws ecs describe-tasks \
+  --cluster "${CLUSTER}" \
+  --tasks "${TASK_ARN}" \
+  --query 'tasks[0].containers[0].exitCode' \
+  --output text)"
+echo "Task exit code: ${EXIT_CODE}"
+
+if [[ "${EXIT_CODE}" != "0" ]]; then
+  echo "Ingest task failed. Check CloudWatch logs above." >&2
+  exit 1
+fi
+
+echo "Historical ingest complete. Verify API:"
+API_URL="$(terraform output -raw api_service_url)"
+echo "  curl ${API_URL}/incidents?page_size=1"
