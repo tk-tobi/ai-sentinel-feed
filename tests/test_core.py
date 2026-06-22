@@ -6,6 +6,7 @@ import pytest
 
 from sentinel.models import Severity, Source, make_incident_id
 from sentinel.pipeline.normalize import mask_pii, normalize
+from sentinel.pipeline.store import sanitize_json_value
 from sentinel.severity import cvss_to_severity, qualitative_harm_to_severity
 from sentinel.sources.atlas import AtlasTaxonomy, DEFAULT_ATLAS_PATH
 
@@ -107,6 +108,13 @@ def test_normalize_aiid_sample_shape():
     assert record.vendor == "YouTube"
     assert record.severity == qualitative_harm_to_severity(raw["description"])
     assert record.raw["reports"][0]["report_number"] == 15
+
+
+def test_sanitize_json_value_replaces_nan():
+    assert sanitize_json_value({"Deployer": float("nan"), "ok": 1}) == {
+        "Deployer": None,
+        "ok": 1,
+    }
 
 
 def test_qualitative_harm_to_severity_coerces_non_string_values():

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import math
 from datetime import date, datetime
+from typing import Any
 
 from sqlalchemy import Date, DateTime, String, Text, create_engine, text
 from sqlalchemy.dialects.postgresql import JSONB, insert
@@ -10,6 +12,19 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 from sentinel.config import DATABASE_URL
 from sentinel.models import IncidentRecord
+
+UPSERT_BATCH_SIZE = 200
+
+
+def sanitize_json_value(value: Any) -> Any:
+    """Make values safe for PostgreSQL JSONB (NaN/Inf are rejected)."""
+    if isinstance(value, dict):
+        return {str(key): sanitize_json_value(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [sanitize_json_value(item) for item in value]
+    if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
+        return None
+    return value
 
 
 class Base(DeclarativeBase):
@@ -73,8 +88,19 @@ def _record_to_row(record: IncidentRecord) -> dict:
         "severity": record.severity.value,
         "tags": record.tags,
         "url": record.url,
-        "raw": record.raw,
+        "raw": sanitize_json_value(record.raw),
     }
+
+
+def _upsert_rows(session: Session, rows: list[dict]) -> None:
+    stmt = insert(IncidentRow).values(rows)
+    update_columns = {
+        column.name: stmt.excluded[column.name]
+        for column in IncidentRow.__table__.columns
+        if column.name != "id"
+    }
+    upsert = stmt.on_conflict_do_update(index_elements=["id"], set_=update_columns)
+    session.execute(upsert)
 
 
 def upsert_incidents(
@@ -90,16 +116,11 @@ def upsert_incidents(
     create_tables(engine)
 
     rows = [_record_to_row(record) for record in records]
-    stmt = insert(IncidentRow).values(rows)
-    update_columns = {
-        column.name: stmt.excluded[column.name]
-        for column in IncidentRow.__table__.columns
-        if column.name != "id"
-    }
-    upsert = stmt.on_conflict_do_update(index_elements=["id"], set_=update_columns)
 
     with Session(engine) as session:
-        session.execute(upsert)
+        for offset in range(0, len(rows), UPSERT_BATCH_SIZE):
+            batch = rows[offset : offset + UPSERT_BATCH_SIZE]
+            _upsert_rows(session, batch)
         session.commit()
     return len(rows)
 
