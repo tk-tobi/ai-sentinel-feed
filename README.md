@@ -331,20 +331,6 @@ DATABASE_URL=postgresql://sentinel:sentinel@localhost:5432/sentinel
 
 **Teardown (dev):** `./infra/scripts/teardown.sh dev` uses `skip_final_snapshot` and `force_destroy` on buckets.
 
----
-
-## What's next (production)
-
-Local Docker proves the consumption layer. To go live on AWS:
-
-1. **Publish image** — merge to `main`; CI pushes `ghcr.io/tk-tobi/ai-sentinel-feed:latest` (make the GHCR package public once).
-2. **Terraform** — `./infra/scripts/apply.sh dev` (RDS, S3, ECR, ECS ingest, App Runner, Secrets).
-3. **Ingest image** — Dockerfile with Playwright → ECR; one-off ECS task for RDS historical load (`scripts/historical_load_rds.sh`).
-4. **API** — App Runner from API image (or split API out of the all-in-one image for prod).
-5. **Dashboard** — Streamlit Cloud pointed at RDS or the public API.
-6. **Exports** — S3 upload hooks + HuggingFace Hub sync after each ingest.
-
-Checklist detail: `TODO.md` (local notes).
 
 ---
 
