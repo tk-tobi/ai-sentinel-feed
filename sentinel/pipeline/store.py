@@ -26,8 +26,8 @@ class IncidentRow(Base):
     description: Mapped[str] = mapped_column(Text)
     incident_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
     ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
-    vendor: Mapped[str | None] = mapped_column(String(256), nullable=True, index=True)
-    system: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    vendor: Mapped[str | None] = mapped_column(Text, nullable=True, index=True)
+    system: Mapped[str | None] = mapped_column(Text, nullable=True)
     atlas_technique: Mapped[str] = mapped_column(String(32), index=True)
     atlas_tactic: Mapped[str | None] = mapped_column(String(128), nullable=True)
     severity: Mapped[str] = mapped_column(String(32), index=True)
@@ -43,6 +43,18 @@ def get_engine(database_url: str = DATABASE_URL):
 def create_tables(engine=None) -> None:
     engine = engine or get_engine()
     Base.metadata.create_all(engine)
+    _upgrade_columns(engine)
+
+
+def _upgrade_columns(engine) -> None:
+    """Widen columns when an older schema already exists (idempotent)."""
+    alters = (
+        "ALTER TABLE incidents ALTER COLUMN vendor TYPE TEXT",
+        "ALTER TABLE incidents ALTER COLUMN system TYPE TEXT",
+    )
+    with engine.begin() as conn:
+        for stmt in alters:
+            conn.execute(text(stmt))
 
 
 def _record_to_row(record: IncidentRecord) -> dict:

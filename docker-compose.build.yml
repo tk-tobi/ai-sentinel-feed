@@ -1,0 +1,6 @@
+# Build from source instead of pulling ghcr.io (maintainers / CI parity)
+services:
+  sentinel:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile

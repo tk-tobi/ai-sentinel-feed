@@ -2,6 +2,13 @@
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parents[2]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
 import pandas as pd
 import streamlit as st
 
@@ -16,6 +23,21 @@ st.caption("Unified AI incident feed — volume, vendors, ATLAS techniques, seve
 @st.cache_data(ttl=300)
 def load_incidents():
     return read.list_all_incidents()
+
+
+def _display_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """Coerce nulls for Streamlit/Arrow JSON serialization."""
+    out = df.copy()
+    out.columns = [
+        "(empty)" if c is None or (isinstance(c, float) and pd.isna(c)) else str(c)
+        for c in out.columns
+    ]
+    for col in out.columns:
+        if pd.api.types.is_datetime64_any_dtype(out[col]):
+            out[col] = out[col].dt.strftime("%Y-%m-%d %H:%M:%S").fillna("")
+        else:
+            out[col] = out[col].fillna("").astype(str).replace("NaT", "")
+    return out
 
 
 try:
@@ -108,12 +130,28 @@ vendor_tactic = (
 if vendor_tactic.empty:
     st.info("No vendor/tactic combinations for the selected filters.")
 else:
+    vendor_tactic["atlas_tactic"] = vendor_tactic["atlas_tactic"].fillna("(no tactic)")
     heatmap = vendor_tactic.pivot(index="vendor", columns="atlas_tactic", values="count").fillna(0)
-    st.dataframe(heatmap.style.background_gradient(cmap="Blues", axis=None))
+    top_vendors = heatmap.sum(axis=1).nlargest(20).index
+    st.dataframe(_display_dataframe(heatmap.loc[top_vendors]), use_container_width=True)
 
 st.subheader("Searchable incident table")
+table_columns = [
+    "source",
+    "title",
+    "vendor",
+    "system",
+    "severity",
+    "atlas_technique",
+    "atlas_tactic",
+    "incident_date",
+    "ingested_at",
+    "url",
+]
 st.dataframe(
-    filtered.sort_values("ingested_at", ascending=False),
+    _display_dataframe(
+        filtered.sort_values("ingested_at", ascending=False)[table_columns]
+    ),
     use_container_width=True,
     hide_index=True,
 )

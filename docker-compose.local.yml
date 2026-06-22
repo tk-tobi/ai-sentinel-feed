@@ -1,0 +1,23 @@
+# All-in-one stack: Postgres + API + Streamlit (pre-built image)
+# Consumers: docker compose -f docker-compose.local.yml up -d
+# Maintainers: docker compose -f docker-compose.local.yml -f docker-compose.build.yml up --build
+services:
+  sentinel:
+    image: ghcr.io/tk-tobi/ai-sentinel-feed:latest
+    container_name: sentinel-local
+    ports:
+      - "8000:8000"
+      - "8501:8501"
+    environment:
+      DATABASE_URL: postgresql://sentinel:sentinel@127.0.0.1:5432/sentinel
+    volumes:
+      - sentinel_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U sentinel -d sentinel"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
+
+volumes:
+  sentinel_pgdata:

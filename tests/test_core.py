@@ -128,3 +128,48 @@ def test_normalize_aiaaic_sample_shape():
     assert record.system == "Workplace monitoring"
     assert record.incident_date == date(2026, 1, 1)
     assert record.url == "https://example.com/story"
+
+
+def test_parse_date_handles_partial_aiaaic_values():
+    from sentinel.pipeline.normalize import _parse_date
+
+    assert _parse_date("2018-") == date(2018, 1, 1)
+    assert _parse_date("2018-06") == date(2018, 6, 1)
+    assert _parse_date("2018-06-15") == date(2018, 6, 15)
+    assert _parse_date("not-a-date") is None
+
+
+@pytest.mark.skipif(
+    not DEFAULT_ATLAS_PATH.exists(),
+    reason="ATLAS YAML not downloaded locally",
+)
+def test_normalize_maps_jailbreak_to_atlas():
+    atlas = AtlasTaxonomy.from_yaml()
+    raw = {
+        "incident_id": 99,
+        "title": "Jailbreak bypasses ChatGPT safety filters",
+        "description": "Users discovered a prompt injection jailbreak.",
+        "date": "2024-01-01",
+        "AllegedDeployerOfAISystem": [{"name": "OpenAI"}],
+    }
+    record = normalize(raw, Source.AIID, ingested_at=INGESTED_AT, atlas=atlas)
+    assert record.atlas_technique == "AML.T0054"
+
+
+@pytest.mark.skipif(
+    not DEFAULT_ATLAS_PATH.exists(),
+    reason="ATLAS YAML not downloaded locally",
+)
+def test_normalize_maps_nvd_to_supply_chain_default():
+    atlas = AtlasTaxonomy.from_yaml()
+    raw = {
+        "search_keyword": "pytorch",
+        "cve": {
+            "id": "CVE-2024-0001",
+            "published": "2024-01-01T00:00:00.000",
+            "descriptions": [{"lang": "en", "value": "Buffer overflow in library."}],
+            "metrics": {"cvssMetricV31": [{"cvssData": {"baseScore": 5.0}}]},
+        },
+    }
+    record = normalize(raw, Source.NVD, ingested_at=INGESTED_AT, atlas=atlas)
+    assert record.atlas_technique == "AML.T0010.001"
