@@ -1,0 +1,16 @@
+# Scheduled ingest for AWS ECS Fargate (Playwright + Round 1 sources)
+FROM mcr.microsoft.com/playwright/python:v1.49.1-noble
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app
+
+WORKDIR /app
+
+COPY requirements.ingest.txt .
+RUN pip install --no-cache-dir -r requirements.ingest.txt
+
+COPY sentinel ./sentinel
+
+# ECS task definition sets: python -m sentinel.pipeline.ingest --source all
+CMD ["python", "-m", "sentinel.pipeline.ingest", "--source", "all"]
