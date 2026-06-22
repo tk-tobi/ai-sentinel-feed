@@ -31,7 +31,7 @@ source "${ROOT_DIR}/scripts/aws_env.sh"
 ensure_aws_credentials
 
 if [[ "${SKIP_PUSH}" -eq 0 ]]; then
-  echo "==> Pushing API image to ECR (ingest deferred — use push_ecr.sh --ingest-only later)"
+  echo "==> Pushing API image to ECR (ingest deferred, use push_ecr.sh --ingest-only later)"
   "${REPO_ROOT}/infra/scripts/push_ecr.sh" "${ENVIRONMENT}" --api-only
 else
   echo "==> Skipping ECR push (--skip-push)"
@@ -67,7 +67,7 @@ status="$(service_status)"
 addr='module.api.aws_apprunner_service.api[0]'
 
 if [[ "${status}" == "RUNNING" ]]; then
-  echo "==> Service is RUNNING — clearing taint so Terraform does not replace it"
+  echo "==> Service is RUNNING, clearing taint so Terraform does not replace it"
   terraform untaint "${addr}" 2>/dev/null || true
 elif [[ "${status}" == "CREATE_FAILED" ]]; then
   if terraform state show "${addr}" &>/dev/null; then

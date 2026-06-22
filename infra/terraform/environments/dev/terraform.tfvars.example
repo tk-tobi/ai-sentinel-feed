@@ -2,7 +2,7 @@ aws_region = "us-east-1"
 project_name = "ai-sentinel-feed"
 environment = "dev"
 
-# Required — choose a strong password for RDS
+# Required: choose a strong password for RDS
 db_password = "CHANGE_ME"
 
 # Dev teardown defaults (safe to leave as-is)
@@ -12,3 +12,6 @@ s3_force_destroy       = true
 # Optional secrets (can also be updated in AWS Secrets Manager after apply)
 # nvd_api_key = ""
 # hf_token    = ""
+
+# Set true after first ECR push + App Runner deploy; must stay true or apply destroys the API
+# deploy_api_service = true

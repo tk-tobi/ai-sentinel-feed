@@ -4,7 +4,7 @@
 # Local (default):
 #   ./scripts/historical_load.sh
 #
-# RDS (after terraform apply — point DATABASE_URL at RDS or use ECS):
+# RDS (after terraform apply, point DATABASE_URL at RDS or use ECS):
 #   DATABASE_URL='postgresql://...' ./scripts/historical_load.sh --target rds
 #
 # RDS is private in Terraform; prefer the one-off ECS task from terraform output:
@@ -69,7 +69,7 @@ if [[ -f .env ]]; then
   source .env
   set +a
 elif [[ ! -f .env ]] && [[ "${TARGET}" == "local" ]]; then
-  echo "No .env found — copying from .env.example"
+  echo "No .env found, copying from .env.example"
   cp .env.example .env
   set -a
   # shellcheck disable=SC1091

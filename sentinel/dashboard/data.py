@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import os
-from typing import Any
 
-import httpx
 import streamlit as st
 
 from sentinel.models import IncidentRecord
+from sentinel.pipeline.api_client import fetch_all_incidents
 
-API_PAGE_SIZE = 200
 SECRET_KEYS = ("SENTINEL_API_URL", "API_URL")
 
 
@@ -30,37 +28,11 @@ def resolve_api_url() -> str | None:
     return None
 
 
-def fetch_incidents_from_api(base_url: str) -> list[IncidentRecord]:
-    """Page through GET /incidents until all records are loaded."""
-    records: list[IncidentRecord] = []
-    page = 1
-
-    with httpx.Client(timeout=120.0) as client:
-        while True:
-            response = client.get(
-                f"{base_url}/incidents",
-                params={"page": page, "page_size": API_PAGE_SIZE},
-            )
-            response.raise_for_status()
-            payload: dict[str, Any] = response.json()
-            batch = payload.get("items", [])
-            total = int(payload.get("total", 0))
-
-            for item in batch:
-                records.append(IncidentRecord.model_validate(item))
-
-            if not batch or len(records) >= total:
-                break
-            page += 1
-
-    return records
-
-
 def load_incidents() -> list[IncidentRecord]:
     """Load incidents from the API when configured, otherwise from PostgreSQL."""
     api_url = resolve_api_url()
     if api_url:
-        return fetch_incidents_from_api(api_url)
+        return fetch_all_incidents(api_url)
 
     from sentinel.pipeline import read
 

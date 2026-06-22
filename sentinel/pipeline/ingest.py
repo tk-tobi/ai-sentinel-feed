@@ -1,4 +1,4 @@
-"""Ingestion orchestrator — fetch, snapshot raw data, normalize, store."""
+"""Ingestion orchestrator, fetch, snapshot raw data, normalize, store."""
 
 from __future__ import annotations
 
@@ -104,6 +104,13 @@ def main(argv: list[str] | None = None) -> None:
     sources = sorted(SOURCE_REGISTRY) if args.source == "all" else [args.source]
     for source_name in sources:
         ingest_source(source_name, persist=not args.dry_run)
+
+    if not args.dry_run and args.source == "all":
+        from sentinel.pipeline.export import export_all
+        from sentinel.pipeline.huggingface import publish_to_hub
+
+        export_paths = export_all()
+        publish_to_hub(export_paths)
 
 
 if __name__ == "__main__":

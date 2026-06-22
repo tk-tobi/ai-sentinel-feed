@@ -6,6 +6,7 @@ import pytest
 
 from sentinel.models import Severity, Source, make_incident_id
 from sentinel.pipeline.normalize import mask_pii, normalize
+from sentinel.pipeline.huggingface import dataset_card, publish_to_hub
 from sentinel.pipeline.store import sanitize_json_value
 from sentinel.severity import cvss_to_severity, qualitative_harm_to_severity
 from sentinel.sources.atlas import AtlasTaxonomy, DEFAULT_ATLAS_PATH
@@ -199,3 +200,21 @@ def test_normalize_maps_nvd_to_supply_chain_default():
     }
     record = normalize(raw, Source.NVD, ingested_at=INGESTED_AT, atlas=atlas)
     assert record.atlas_technique == "AML.T0010.001"
+
+
+def test_dataset_card_renders_placeholders():
+    card = dataset_card(
+        repo_id="tk-tobi/ai-sentinel-feed",
+        total_records=4377,
+        split_counts={"incidents": 4377, "jailbreaks": 12},
+        exported_at="2026-06-22T00:00:00Z",
+    )
+    assert "tk-tobi/ai-sentinel-feed" in card
+    assert "4377" in card
+    assert "jailbreaks" in card
+
+
+def test_publish_to_hub_skips_without_token(tmp_path):
+    path = tmp_path / "incidents.jsonl"
+    path.write_text("{}\n", encoding="utf-8")
+    assert publish_to_hub({"incidents": path}, token="") is None

@@ -1,1 +1,1 @@
-"""Ingestion pipeline — fetch, normalize, deduplicate, store."""
+"""Ingestion pipeline, fetch, normalize, deduplicate, store."""

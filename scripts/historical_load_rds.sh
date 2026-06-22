@@ -34,7 +34,7 @@ if [[ -z "${SG}" ]]; then
   exit 1
 fi
 
-# Default VPC subnet (matches terraform dev layout — assignPublicIp for ECR/NVD egress).
+# Default VPC subnet (matches terraform dev layout, assignPublicIp for ECR/NVD egress).
 SUBNET="${SUBNET_ID:-}"
 if [[ -z "${SUBNET}" ]]; then
   SUBNET="$(aws ec2 describe-subnets \

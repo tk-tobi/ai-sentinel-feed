@@ -1,8 +1,8 @@
-# Production deployment — PR plan
+# Production deployment, PR plan
 
 Split work across focused PRs on `feat/production-deploy` (or stacked branches).
 
-## PR 1 — Production Docker images + ECR push *(this branch, first)*
+## PR 1, Production Docker images + ECR push *(this branch, first)*
 
 **Goal:** Buildable API and ingest images matching Terraform ECR repos.
 
@@ -17,7 +17,7 @@ Split work across focused PRs on `feat/production-deploy` (or stacked branches).
 
 ---
 
-## PR 2 — Terraform apply + production smoke test
+## PR 2, Terraform apply + production smoke test
 
 **Goal:** Live AWS dev stack.
 
@@ -30,7 +30,7 @@ No code required unless apply surfaces module fixes.
 
 ---
 
-## PR 3 — RDS historical load
+## PR 3, RDS historical load
 
 **Goal:** Seed production Postgres without re-scraping from laptop.
 
@@ -40,7 +40,7 @@ No code required unless apply surfaces module fixes.
 
 ---
 
-## PR 4 — S3 export hooks + scheduled ingest hardening
+## PR 4, S3 export hooks + scheduled ingest hardening
 
 **Goal:** Post-ingest uploads to S3; nightly schedule verified.
 
@@ -49,7 +49,7 @@ No code required unless apply surfaces module fixes.
 
 ---
 
-## PR 5 — Streamlit Cloud + HuggingFace Hub
+## PR 5, Streamlit Cloud + HuggingFace Hub
 
 **Goal:** Public dashboard and ML dataset access.
 

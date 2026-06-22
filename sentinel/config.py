@@ -40,3 +40,6 @@ AIID_GRAPHQL_URL = os.getenv(
     "AIID_GRAPHQL_URL",
     "https://incidentdatabase.ai/api/graphql",
 )
+HF_TOKEN = os.getenv("HF_TOKEN", "")
+HF_DATASET_REPO = os.getenv("HF_DATASET_REPO", "tk-tobi/ai-sentinel-feed")
+SENTINEL_API_URL = os.getenv("SENTINEL_API_URL", "")

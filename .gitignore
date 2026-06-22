@@ -19,7 +19,7 @@ override.tf.json
 *_override.tf
 *_override.tf.json
 
-# Generated data — keep directory structure, ignore contents
+# Generated data, keep directory structure, ignore contents
 data/raw/**
 !data/raw/.gitkeep
 data/exports/**

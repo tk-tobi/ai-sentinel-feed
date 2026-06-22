@@ -17,7 +17,7 @@ from sentinel.models import UNMAPPED_TECHNIQUE
 
 st.set_page_config(page_title="ai-sentinel-feed", layout="wide")
 st.title("ai-sentinel-feed")
-st.caption("Unified AI incident feed — volume, vendors, ATLAS techniques, severity")
+st.caption("Unified AI incident feed: volume, vendors, ATLAS techniques, severity")
 
 api_url = resolve_api_url()
 if api_url:

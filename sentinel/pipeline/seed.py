@@ -34,7 +34,7 @@ def seed_database(
     create_tables(engine)
     existing = count_incidents(engine=engine)
     if existing and not force:
-        print(f"[seed] skipped — database already has {existing} incidents")
+        print(f"[seed] skipped, database already has {existing} incidents")
         return 0
 
     if not path.exists():

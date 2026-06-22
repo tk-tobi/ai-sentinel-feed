@@ -6,7 +6,7 @@ Contains embedded PostgreSQL, FastAPI, Streamlit, and a seed snapshot (`docker/s
 
 ## For users (pull and run)
 
-**One command** (Docker only — no clone, no build):
+**One command** (Docker only, no clone, no build):
 
 ```bash
 docker run -d \
@@ -50,7 +50,7 @@ CI (`.github/workflows/docker-publish.yml`) builds and pushes to GHCR on pushes 
 
 ## What is not in this image
 
-- **Ingest / Playwright** — run locally with Python for full re-scrape (`python -m sentinel.pipeline.ingest`)
+- **Ingest / Playwright:** run locally with Python for full re-scrape (`python -m sentinel.pipeline.ingest`)
 - The standalone `docker-compose.yml` (Postgres-only) remains for that dev workflow
 
 ## Production images (AWS)

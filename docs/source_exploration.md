@@ -8,7 +8,7 @@ Notes from Phase 1 API/feed exploration. Sample payloads live under `data/raw/{s
 
 **Endpoint:** `GET https://services.nvd.nist.gov/rest/json/cves/2.0`
 
-**Auth:** Optional `apiKey` header (recommended — unauthenticated rate limit is ~5 requests / 30s).
+**Auth:** Optional `apiKey` header (recommended, unauthenticated rate limit is ~5 requests / 30s).
 
 **Query strategy:** `keywordSearch` for ML stack terms: `pytorch`, `tensorflow`, `langchain`, `huggingface`.
 
@@ -40,7 +40,7 @@ vulnerabilities[].cve
 | `vendor` | Parse from `affected[].affectedData[].vendor` or CPE |
 | `system` | `affected[].affectedData[].product` |
 | `severity` | Map `metrics.cvssMetricV31[0].cvssData.baseScore` |
-| `atlas_technique` | Usually `unmapped` for library CVEs — manual/heuristic mapping later |
+| `atlas_technique` | Usually `unmapped` for library CVEs, manual/heuristic mapping later |
 | `tags` | Keyword used + CWE IDs from `weaknesses` |
 | `url` | `https://nvd.nist.gov/vuln/detail/{cve.id}` |
 | `raw` | Full CVE object |
@@ -48,7 +48,7 @@ vulnerabilities[].cve
 ### Quirks
 
 - NVD 2.0 API is slow without an API key (~40s per request observed).
-- `keywordSearch` is broad — expect false positives; filter by CPE vendor/product in normalization.
+- `keywordSearch` is broad, expect false positives; filter by CPE vendor/product in normalization.
 - Some CVEs only have CVSS v2 metrics; fallback logic needed.
 
 ---
@@ -63,8 +63,8 @@ vulnerabilities[].cve
 
 ### Incidents vs reports
 
-- **Incident** — canonical event (one real-world AI failure).
-- **Report** — news article or submission documenting that incident. One incident → many reports.
+- **Incident:** canonical event (one real-world AI failure).
+- **Report:** news article or submission documenting that incident. One incident → many reports.
 - Ingest at the **incident** level; store linked `reports` in `raw`.
 
 ### GraphQL query (verified)
@@ -167,7 +167,7 @@ pd.read_csv(url, header=1, skiprows=[2])
 - `Occurred` is often just a year, not full date.
 - Many optional fields are sparse (`NaN` for Deployer, System name).
 - Must follow redirects (`curl -L`) when downloading.
-- License: CC BY-SA 4.0 — attribute AIAAIC in exports.
+- License: CC BY-SA 4.0, attribute AIAAIC in exports.
 
 ---
 
@@ -212,7 +212,7 @@ ATLAS is the **classification layer**, not an incident source. Used to:
 
 ### Quirks
 
-- Download at ingest/setup time (don't commit the YAML — gitignored).
+- Download at ingest/setup time (don't commit the YAML, gitignored).
 - Technique IDs use `AML.T####` format; tactics use `AML.TA####`.
 - Sub-techniques reference parent via `subtechnique-of`.
 
@@ -221,16 +221,16 @@ ATLAS is the **classification layer**, not an incident source. Used to:
 ## Cross-source observations
 
 1. **Date precision varies:** NVD has full timestamps; AIID has dates; AIAAIC often has year only.
-2. **Vendor/system extraction is messy:** Each source uses different fields — normalization logic will be source-specific.
-3. **Severity is heterogeneous:** CVSS scores (NVD) vs qualitative taxonomies (AIID/AIAAIC) — needs `severity_normalization.md`.
+2. **Vendor/system extraction is messy:** Each source uses different fields, normalization logic will be source-specific.
+3. **Severity is heterogeneous:** CVSS scores (NVD) vs qualitative taxonomies (AIID/AIAAIC), needs `severity_normalization.md`.
 4. **AIID access is the hardest:** Plan on Playwright or a scheduled browser session for ingestion.
-5. **Deduplication across sources:** Same real-world event may appear in AIID and AIAAIC with different IDs — cross-source dedup is a Phase 4+ problem (title/date fuzzy match).
+5. **Deduplication across sources:** Same real-world event may appear in AIID and AIAAIC with different IDs, cross-source dedup is a Phase 4+ problem (title/date fuzzy match).
 
 ---
 
 ## Suggested connector build order
 
-1. `atlas.py` — static YAML loader (no network after download)
-2. `aiaaic.py` — single CSV URL, pandas parse
-3. `nvd.py` — REST with API key + rate limiting
-4. `aiid.py` — Playwright + GraphQL pagination
+1. `atlas.py`, static YAML loader (no network after download)
+2. `aiaaic.py`, single CSV URL, pandas parse
+3. `nvd.py`, REST with API key + rate limiting
+4. `aiid.py`, Playwright + GraphQL pagination

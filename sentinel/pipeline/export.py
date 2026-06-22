@@ -82,9 +82,24 @@ def export_all(
 
 
 def main() -> None:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Export normalized incidents to JSONL")
+    parser.add_argument(
+        "--hub",
+        action="store_true",
+        help="Publish exports to HuggingFace Hub after writing files",
+    )
+    args = parser.parse_args()
+
     outputs = export_all()
     for name, path in outputs.items():
         print(f"exported {name} -> {path}")
+
+    if args.hub:
+        from sentinel.pipeline.huggingface import publish_to_hub
+
+        publish_to_hub(outputs)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-"""Severity normalization helpers — see docs/severity_normalization.md."""
+"""Severity normalization helpers, see docs/severity_normalization.md."""
 
 from __future__ import annotations
 

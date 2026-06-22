@@ -1,1 +1,1 @@
-"""Source connectors — one module per upstream data provider."""
+"""Source connectors, one module per upstream data provider."""

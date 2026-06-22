@@ -4,9 +4,9 @@ All incident records use a shared five-point scale:
 
 | Value | Meaning |
 |---|---|
-| `critical` | Severe harm — loss of life, systemic exploitation, major data breach |
-| `high` | Significant harm — injury, wrongful arrest, discrimination, active exploitation |
-| `medium` | Moderate harm — controversy, misleading output, privacy concerns |
+| `critical` | Severe harm, loss of life, systemic exploitation, major data breach |
+| `high` | Significant harm, injury, wrongful arrest, discrimination, active exploitation |
+| `medium` | Moderate harm, controversy, misleading output, privacy concerns |
 | `low` | Minor or limited harm |
 | `informational` | No harm score available, or negligible impact |
 

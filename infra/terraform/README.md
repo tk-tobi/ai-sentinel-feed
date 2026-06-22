@@ -35,7 +35,7 @@ Set `aws_region` in `terraform.tfvars` to the region where you want resources (e
 cd infra/terraform/environments/dev
 
 cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars — set db_password, aws_region
+# Edit terraform.tfvars, set db_password, aws_region
 
 # From repo root (three phases: infra → ECR push → App Runner):
 ./infra/scripts/apply.sh dev
@@ -66,11 +66,11 @@ Or use the helper script from repo root:
 
 ## GCP mapping
 
-See [TODO.md](../../../TODO.md) — AWS ↔ GCP equivalence table in the production architecture section.
+See [TODO.md](../../../TODO.md), AWS ↔ GCP equivalence table in the production architecture section.
 
 ## After apply
 
-1. Push production images to ECR (ingest image is large — use `--ingest-only` if API is already live):
+1. Push production images to ECR (ingest image is large, use `--ingest-only` if API is already live):
    ```bash
    ./infra/scripts/push_ecr.sh dev --ingest-only
    ```
