@@ -34,6 +34,12 @@ variable "database_security_group_id" {
   type = string
 }
 
+variable "deploy_service" {
+  type        = bool
+  description = "Create App Runner service (requires :latest image in ECR first)"
+  default     = true
+}
+
 resource "aws_security_group" "service" {
   name        = "${var.name_prefix}-api"
   description = "App Runner VPC connector egress to RDS"
@@ -99,6 +105,7 @@ resource "aws_iam_role_policy" "apprunner_secrets" {
 }
 
 resource "aws_apprunner_service" "api" {
+  count        = var.deploy_service ? 1 : 0
   service_name = "${var.name_prefix}-api"
 
   source_configuration {
@@ -132,9 +139,18 @@ resource "aws_apprunner_service" "api" {
       egress_type       = "VPC"
       vpc_connector_arn = aws_apprunner_vpc_connector.this.arn
     }
+
+    ingress_configuration {
+      is_publicly_accessible = true
+    }
   }
 
   health_check_configuration {
-    path = "/health"
+    protocol            = "HTTP"
+    path                = "/health"
+    interval            = 10
+    timeout             = 5
+    healthy_threshold   = 1
+    unhealthy_threshold = 3
   }
 }

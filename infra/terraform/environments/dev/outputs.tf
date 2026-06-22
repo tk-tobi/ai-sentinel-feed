@@ -1,3 +1,7 @@
+output "aws_region" {
+  value = var.aws_region
+}
+
 output "raw_bucket_name" {
   value = module.storage.raw_bucket_name
 }
@@ -45,6 +49,10 @@ output "eventbridge_rule_name" {
 
 output "api_service_url" {
   value = module.api.service_url
+}
+
+output "api_service_arn" {
+  value = module.api.service_arn
 }
 
 output "app_secrets_arn" {

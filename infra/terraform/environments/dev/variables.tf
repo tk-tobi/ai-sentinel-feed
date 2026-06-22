@@ -97,3 +97,9 @@ variable "aiaaic_csv_url" {
   description = "AIAAIC Google Sheets CSV export URL"
   default     = "https://docs.google.com/spreadsheets/d/1Bn55B4xz21-_Rgdr8BBb2lt0n_4rzLGxFADMlVW0PYI/export?format=csv&gid=888071280"
 }
+
+variable "deploy_api_service" {
+  type        = bool
+  description = "Create App Runner API service (set false for phase-1 apply before ECR push)"
+  default     = false
+}

@@ -67,6 +67,7 @@ module "api" {
   memory                     = var.api_memory
   secrets_arn                = module.secrets.app_secrets_arn
   database_security_group_id = module.database.security_group_id
+  deploy_service             = var.deploy_api_service
 }
 
 resource "aws_security_group_rule" "rds_from_ingest" {
