@@ -12,6 +12,10 @@ from sentinel.config import NVD_API_KEY, NVD_API_URL, NVD_KEYWORDS
 DEFAULT_RESULTS_PER_PAGE = 100
 UNAUTHENTICATED_DELAY_SECONDS = 6.0
 AUTHENTICATED_DELAY_SECONDS = 0.6
+MAX_RETRIES = 6
+INITIAL_BACKOFF_SECONDS = 5.0
+MAX_BACKOFF_SECONDS = 120.0
+RETRYABLE_STATUS_CODES = {429, 502, 503, 504}
 
 
 def _request_params(
@@ -34,6 +38,33 @@ def _request_headers(api_key: str | None) -> dict[str, str]:
     return headers
 
 
+def _get_json_with_retry(
+    client: httpx.Client,
+    url: str,
+    *,
+    params: dict[str, Any],
+    headers: dict[str, str],
+) -> dict[str, Any]:
+    """GET JSON from NVD, retrying transient upstream failures."""
+    backoff = INITIAL_BACKOFF_SECONDS
+    for attempt in range(1, MAX_RETRIES + 1):
+        response = client.get(url, params=params, headers=headers)
+        status_code = getattr(response, "status_code", 200)
+        if status_code in RETRYABLE_STATUS_CODES and attempt < MAX_RETRIES:
+            print(
+                f"[nvd] {response.status_code} for {params.get('keywordSearch')} "
+                f"startIndex={params.get('startIndex')}; "
+                f"retry {attempt}/{MAX_RETRIES - 1} in {backoff:.0f}s"
+            )
+            time.sleep(backoff)
+            backoff = min(backoff * 2, MAX_BACKOFF_SECONDS)
+            continue
+        response.raise_for_status()
+        return response.json()
+    response.raise_for_status()
+    raise RuntimeError("NVD request failed after retries")
+
+
 def fetch_keyword(
     keyword: str,
     *,
@@ -54,7 +85,8 @@ def fetch_keyword(
 
     try:
         while total_results is None or start_index < total_results:
-            response = client.get(
+            payload = _get_json_with_retry(
+                client,
                 api_url,
                 params=_request_params(
                     keyword,
@@ -63,8 +95,6 @@ def fetch_keyword(
                 ),
                 headers=headers,
             )
-            response.raise_for_status()
-            payload = response.json()
 
             if total_results is None:
                 total_results = int(payload.get("totalResults", 0))

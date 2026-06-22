@@ -42,6 +42,7 @@ class FakeNvdClient:
         class Response:
             def __init__(self, payload):
                 self._payload = payload
+                self.status_code = 200
 
             def raise_for_status(self):
                 return None
@@ -73,6 +74,8 @@ def test_fetch_keyword_paginates_results(monkeypatch):
             self.calls += 1
 
             class Response:
+                status_code = 200
+
                 def raise_for_status(self):
                     return None
 
@@ -96,6 +99,46 @@ def test_fetch_keyword_paginates_results(monkeypatch):
     records = fetch_keyword("pytorch", client=PagingClient())
     assert len(records) == 2
     assert records[0]["search_keyword"] == "pytorch"
+
+
+def test_fetch_keyword_retries_transient_503(monkeypatch):
+    attempts = {"count": 0}
+
+    class FlakyClient:
+        def get(self, url, params=None, headers=None):
+            attempts["count"] += 1
+
+            class Response:
+                status_code = 503 if attempts["count"] == 1 else 200
+
+                def raise_for_status(self):
+                    if self.status_code >= 400:
+                        request = httpx.Request("GET", url)
+                        response = httpx.Response(self.status_code, request=request)
+                        raise httpx.HTTPStatusError(
+                            "503 Service Unavailable",
+                            request=request,
+                            response=response,
+                        )
+
+                def json(self):
+                    return {
+                        "totalResults": 1,
+                        "vulnerabilities": [{"cve": {"id": "CVE-RETRY-1"}}],
+                    }
+
+            return Response()
+
+        def close(self):
+            return None
+
+    sleeps: list[float] = []
+    monkeypatch.setattr("sentinel.sources.nvd.time.sleep", lambda seconds: sleeps.append(seconds))
+
+    records = fetch_keyword("pytorch", client=FlakyClient())
+    assert len(records) == 1
+    assert attempts["count"] == 2
+    assert sleeps == [5.0]
 
 
 def test_fetch_dedupes_cves_across_keywords(monkeypatch):
