@@ -1,2 +1,15 @@
 TODO.md
-.venv
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+.DS_Store
+
+# Generated data — keep directory structure, ignore contents
+data/raw/**
+!data/raw/.gitkeep
+data/exports/**
+!data/exports/.gitkeep
+data/atlas/**
+!data/atlas/.gitkeep
