@@ -128,3 +128,12 @@ def test_normalize_aiaaic_sample_shape():
     assert record.system == "Workplace monitoring"
     assert record.incident_date == date(2026, 1, 1)
     assert record.url == "https://example.com/story"
+
+
+def test_parse_date_handles_partial_aiaaic_values():
+    from sentinel.pipeline.normalize import _parse_date
+
+    assert _parse_date("2018-") == date(2018, 1, 1)
+    assert _parse_date("2018-06") == date(2018, 6, 1)
+    assert _parse_date("2018-06-15") == date(2018, 6, 15)
+    assert _parse_date("not-a-date") is None

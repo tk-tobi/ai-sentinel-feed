@@ -64,7 +64,29 @@ def _parse_date(value: str | None) -> date | None:
     value = str(value).strip()
     if len(value) == 4 and value.isdigit():
         return date(int(value), 1, 1)
-    return date.fromisoformat(value[:10])
+
+    iso_candidate = value.split("T")[0][:10]
+    if (
+        len(iso_candidate) == 10
+        and iso_candidate[4] == "-"
+        and iso_candidate[7] == "-"
+    ):
+        try:
+            return date.fromisoformat(iso_candidate)
+        except ValueError:
+            pass
+
+    parts = [part for part in value.split("-") if part]
+    if not parts or not parts[0].isdigit():
+        return None
+
+    try:
+        year = int(parts[0])
+        month = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 1
+        day = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 1
+        return date(year, month, day)
+    except ValueError:
+        return None
 
 
 def _first_url(text: str | None) -> str | None:
