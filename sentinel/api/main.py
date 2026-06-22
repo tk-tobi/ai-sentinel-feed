@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from datetime import date
 
 from fastapi import FastAPI, HTTPException, Query
@@ -9,11 +10,20 @@ from pydantic import BaseModel, Field
 
 from sentinel.models import IncidentRecord
 from sentinel.pipeline import read
+from sentinel.pipeline.store import create_tables
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    create_tables()
+    yield
+
 
 app = FastAPI(
     title="ai-sentinel-feed",
     description="Unified AI incident feed API",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 
@@ -34,6 +44,11 @@ class StatsResponse(BaseModel):
 class TechniqueCount(BaseModel):
     technique: str
     count: int
+
+
+@app.get("/")
+def root() -> dict[str, str]:
+    return {"status": "ok", "health": "/health"}
 
 
 @app.get("/health")
