@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 
+import httpx
 import yaml
 
-DEFAULT_ATLAS_PATH = Path("data/atlas/ATLAS.yaml")
+from sentinel.config import ATLAS_DIR
+
+DEFAULT_ATLAS_PATH = ATLAS_DIR / "ATLAS.yaml"
 ATLAS_DOWNLOAD_URL = (
     "https://raw.githubusercontent.com/mitre-atlas/atlas-data/main/dist/ATLAS.yaml"
 )
@@ -121,3 +125,22 @@ class AtlasTaxonomy:
         if not technique or not technique.tactic_names:
             return None
         return technique.tactic_names[0]
+
+
+def ensure_atlas_yaml(path: Path | str = DEFAULT_ATLAS_PATH) -> Path:
+    """Download ATLAS.yaml if missing locally."""
+    path = Path(path)
+    if path.exists():
+        return path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    response = httpx.get(ATLAS_DOWNLOAD_URL, follow_redirects=True, timeout=60.0)
+    response.raise_for_status()
+    path.write_text(response.text, encoding="utf-8")
+    return path
+
+
+@lru_cache(maxsize=1)
+def load_atlas(path: str | None = None) -> AtlasTaxonomy:
+    """Load (and cache) the MITRE ATLAS taxonomy from disk."""
+    yaml_path = Path(path) if path else ensure_atlas_yaml()
+    return AtlasTaxonomy.from_yaml(yaml_path)
