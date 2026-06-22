@@ -50,6 +50,7 @@ def test_atlas_taxonomy_loads_techniques():
 
 def test_normalize_nvd_sample_shape():
     raw = {
+        "search_keyword": "pytorch",
         "cve": {
             "id": "CVE-2021-43811",
             "published": "2021-12-08T23:15:08.123",
@@ -88,6 +89,7 @@ def test_normalize_nvd_sample_shape():
     assert record.vendor == "awslabs"
     assert record.incident_date == date(2021, 12, 8)
     assert "CWE-94" in record.tags
+    assert "pytorch" in record.tags
 
 
 def test_normalize_aiid_sample_shape():

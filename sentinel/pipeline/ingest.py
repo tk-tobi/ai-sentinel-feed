@@ -14,12 +14,14 @@ from sentinel.models import IncidentRecord, Source
 from sentinel.pipeline.deduplicate import deduplicate
 from sentinel.pipeline.normalize import normalize
 from sentinel.pipeline.store import count_incidents, upsert_incidents
-from sentinel.sources import aiaaic
+from sentinel.sources import aiid, aiaaic, nvd
 
 FetchFn = Callable[[], list[dict[str, Any]]]
 
 SOURCE_REGISTRY: dict[str, tuple[Source, FetchFn]] = {
     "aiaaic": (Source.AIAAIC, aiaaic.fetch),
+    "aiid": (Source.AIID, aiid.fetch),
+    "nvd": (Source.NVD, nvd.fetch),
 }
 
 
@@ -89,8 +91,8 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--source",
         required=True,
-        choices=sorted(SOURCE_REGISTRY),
-        help="Source connector to run",
+        choices=[*sorted(SOURCE_REGISTRY), "all"],
+        help="Source connector to run, or 'all' for every registered source",
     )
     parser.add_argument(
         "--dry-run",
@@ -98,7 +100,10 @@ def main(argv: list[str] | None = None) -> None:
         help="Fetch and normalize without writing to PostgreSQL",
     )
     args = parser.parse_args(argv)
-    ingest_source(args.source, persist=not args.dry_run)
+
+    sources = sorted(SOURCE_REGISTRY) if args.source == "all" else [args.source]
+    for source_name in sources:
+        ingest_source(source_name, persist=not args.dry_run)
 
 
 if __name__ == "__main__":
