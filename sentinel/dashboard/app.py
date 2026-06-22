@@ -12,17 +12,23 @@ if str(_ROOT) not in sys.path:
 import pandas as pd
 import streamlit as st
 
+from sentinel.dashboard.data import load_incidents, resolve_api_url
 from sentinel.models import UNMAPPED_TECHNIQUE
-from sentinel.pipeline import read
 
 st.set_page_config(page_title="ai-sentinel-feed", layout="wide")
 st.title("ai-sentinel-feed")
 st.caption("Unified AI incident feed — volume, vendors, ATLAS techniques, severity")
 
+api_url = resolve_api_url()
+if api_url:
+    st.sidebar.caption(f"Data source: API ({api_url})")
+else:
+    st.sidebar.caption("Data source: PostgreSQL")
+
 
 @st.cache_data(ttl=300)
-def load_incidents():
-    return read.list_all_incidents()
+def cached_incidents():
+    return load_incidents()
 
 
 def _display_dataframe(df: pd.DataFrame) -> pd.DataFrame:
@@ -41,9 +47,13 @@ def _display_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
 
 try:
-    incidents = load_incidents()
+    incidents = cached_incidents()
 except Exception as exc:
-    st.error(f"Could not load incidents from PostgreSQL: {exc}")
+    if api_url:
+        st.error(f"Could not load incidents from API ({api_url}): {exc}")
+    else:
+        st.error(f"Could not load incidents from PostgreSQL: {exc}")
+        st.info("For Streamlit Cloud, set secret `SENTINEL_API_URL` to your App Runner URL.")
     st.stop()
 
 if not incidents:
