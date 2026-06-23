@@ -66,7 +66,7 @@ Or use the helper script from repo root:
 
 ## GCP mapping
 
-See [TODO.md](../../../TODO.md), AWS ↔ GCP equivalence table in the production architecture section.
+AWS ↔ GCP equivalence table in the production architecture section.
 
 ## After apply
 
