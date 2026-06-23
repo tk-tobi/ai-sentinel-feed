@@ -1,17 +1,19 @@
 # Production deployment, PR plan
 
-Split work across focused PRs on `feat/production-deploy` (or stacked branches).
+The production work is split work across focused PRs on `feat/production-deploy`.
 
 ## PR 1, Production Docker images + ECR push *(this branch, first)*
 
 **Goal:** Buildable API and ingest images matching Terraform ECR repos.
 
-| File | Purpose |
-|------|---------|
-| `docker/Dockerfile.api` | Slim FastAPI for App Runner |
-| `docker/Dockerfile.ingest` | Playwright + ingest for ECS Fargate |
-| `requirements/api.txt`, `requirements/ingest.txt` | Image-specific deps |
-| `infra/scripts/push_ecr.sh` | Build + push to ECR after `terraform apply` |
+
+| File                                              | Purpose                                     |
+| ------------------------------------------------- | ------------------------------------------- |
+| `docker/Dockerfile.api`                           | Slim FastAPI for App Runner                 |
+| `docker/Dockerfile.ingest`                        | Playwright + ingest for ECS Fargate         |
+| `requirements/api.txt`, `requirements/ingest.txt` | Image-specific deps                         |
+| `infra/scripts/push_ecr.sh`                       | Build + push to ECR after `terraform apply` |
+
 
 **After merge:** `terraform apply` → `./infra/scripts/push_ecr.sh dev`
 
@@ -26,13 +28,11 @@ Split work across focused PRs on `feat/production-deploy` (or stacked branches).
 - Trigger App Runner deployment for API image
 - Verify `terraform output api_service_url` → `/health`
 
-No code required unless apply surfaces module fixes.
-
 ---
 
 ## PR 3, RDS historical load
 
-**Goal:** Seed production Postgres without re-scraping from laptop.
+**Goal:** Seed production Postgres without re-scraping local.
 
 - Run ECS one-off ingest task (`scripts/historical_load_rds.sh`)
 - Or: `python -m sentinel.pipeline.seed` pointed at RDS if bastion added
@@ -60,8 +60,11 @@ No code required unless apply surfaces module fixes.
 
 ## Image matrix
 
-| Image | Registry | Use |
-|-------|----------|-----|
-| `ghcr.io/tk-tobi/ai-sentinel-feed` | GHCR | Local one-step demo (Postgres + API + dashboard) |
-| `*-api` ECR | AWS | App Runner production API |
-| `*-ingest` ECR | AWS | ECS Fargate scheduled ingest |
+
+| Image                              | Registry | Use                                              |
+| ---------------------------------- | -------- | ------------------------------------------------ |
+| `ghcr.io/tk-tobi/ai-sentinel-feed` | GHCR     | Local one-step demo (Postgres + API + dashboard) |
+| `*-api` ECR                        | AWS      | App Runner production API                        |
+| `*-ingest` ECR                     | AWS      | ECS Fargate scheduled ingest                     |
+
+

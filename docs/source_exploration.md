@@ -1,6 +1,6 @@
 # Round 1 Source Exploration
 
-Notes from Phase 1 API/feed exploration. Sample payloads live under `data/raw/{source}/` (gitignored).
+Notes from Initial Phase API/feed exploration.
 
 ---
 
@@ -8,7 +8,7 @@ Notes from Phase 1 API/feed exploration. Sample payloads live under `data/raw/{s
 
 **Endpoint:** `GET https://services.nvd.nist.gov/rest/json/cves/2.0`
 
-**Auth:** Optional `apiKey` header (recommended, unauthenticated rate limit is ~5 requests / 30s).
+**Auth:** Optional `apiKey` header (recommended)
 
 **Query strategy:** `keywordSearch` for ML stack terms: `pytorch`, `tensorflow`, `langchain`, `huggingface`.
 
@@ -30,26 +30,22 @@ vulnerabilities[].cve
 
 ### Normalization notes
 
-| Our field | NVD source |
-|---|---|
-| `source` | `"NVD"` |
-| `source_id` | `cve.id` |
-| `title` | `cve.id` + short product from CPE or first line of description |
-| `description` | `descriptions[lang=en].value` |
-| `incident_date` | `published` (date part) |
-| `vendor` | Parse from `affected[].affectedData[].vendor` or CPE |
-| `system` | `affected[].affectedData[].product` |
-| `severity` | Map `metrics.cvssMetricV31[0].cvssData.baseScore` |
+
+| My field          | NVD source                                                          |
+| ----------------- | ------------------------------------------------------------------- |
+| `source`          | `"NVD"`                                                             |
+| `source_id`       | `cve.id`                                                            |
+| `title`           | `cve.id` + short product from CPE or first line of description      |
+| `description`     | `descriptions[lang=en].value`                                       |
+| `incident_date`   | `published` (date part)                                             |
+| `vendor`          | Parse from `affected[].affectedData[].vendor` or CPE                |
+| `system`          | `affected[].affectedData[].product`                                 |
+| `severity`        | Map `metrics.cvssMetricV31[0].cvssData.baseScore`                   |
 | `atlas_technique` | Usually `unmapped` for library CVEs, manual/heuristic mapping later |
-| `tags` | Keyword used + CWE IDs from `weaknesses` |
-| `url` | `https://nvd.nist.gov/vuln/detail/{cve.id}` |
-| `raw` | Full CVE object |
+| `tags`            | Keyword used + CWE IDs from `weaknesses`                            |
+| `url`             | `https://nvd.nist.gov/vuln/detail/{cve.id}`                         |
+| `raw`             | Full CVE object                                                     |
 
-### Quirks
-
-- NVD 2.0 API is slow without an API key (~40s per request observed).
-- `keywordSearch` is broad, expect false positives; filter by CPE vendor/product in normalization.
-- Some CVEs only have CVSS v2 metrics; fallback logic needed.
 
 ---
 
@@ -67,7 +63,7 @@ vulnerabilities[].cve
 - **Report:** news article or submission documenting that incident. One incident → many reports.
 - Ingest at the **incident** level; store linked `reports` in `raw`.
 
-### GraphQL query (verified)
+### GraphQL query
 
 ```graphql
 query SampleIncidents($pagination: PaginationType) {
@@ -93,50 +89,54 @@ Variables: `{ "pagination": { "limit": 50, "skip": 0 } }`
 
 ### Normalization notes
 
-| Our field | AIID source |
-|---|---|
-| `source` | `"AIID"` |
-| `source_id` | `incident_id` (integer as string) |
-| `title` | `title` |
-| `description` | `description` |
-| `incident_date` | `date` |
-| `vendor` | `AllegedDeployerOfAISystem[0].name` or developer fallback |
-| `system` | Often embedded in title; no dedicated field |
-| `severity` | Qualitative mapping from harm taxonomy (TBD in severity_normalization.md) |
-| `atlas_technique` | Map from AIID taxonomies / keyword heuristics |
-| `tags` | Derived from title/description keywords |
-| `url` | `https://incidentdatabase.ai/cite/{incident_id}` |
-| `raw` | Full incident + nested reports |
+
+| My field          | AIID source                                                               |
+| ----------------- | ------------------------------------------------------------------------- |
+| `source`          | `"AIID"`                                                                  |
+| `source_id`       | `incident_id` (integer as string)                                         |
+| `title`           | `title`                                                                   |
+| `description`     | `description`                                                             |
+| `incident_date`   | `date`                                                                    |
+| `vendor`          | `AllegedDeployerOfAISystem[0].name` or developer fallback                 |
+| `system`          | Often embedded in title; no dedicated field                               |
+| `severity`        | Qualitative mapping from harm taxonomy (TBD in severity_normalization.md) |
+| `atlas_technique` | Map from AIID taxonomies / keyword heuristics                             |
+| `tags`            | Derived from title/description keywords                                   |
+| `url`             | `https://incidentdatabase.ai/cite/{incident_id}`                          |
+| `raw`             | Full incident + nested reports                                            |
+
 
 ### Quirks
 
-- Pagination uses `{ limit, skip }`, not cursor-based.
-- GraphQL field names are case-sensitive (`AllegedDeployerOfAISystem`, not `allegedDeployer`).
-- `playwright` is required for reliable programmatic access (add when building `aiid.py`).
+- `playwright` is required for reliable programmatic access (see`aiid.py`).
 
 ---
 
 ## AIAAIC
 
-**Source:** Google Sheets CSV export (not a REST API).
+**Source:** Google Sheets CSV scraping (not a REST API).
 
 **URL:**
+
 ```
 https://docs.google.com/spreadsheets/d/1Bn55B4xz21-_Rgdr8BBb2lt0n_4rzLGxFADMlVW0PYI/export?format=csv&gid=888071280
 ```
 
-**Sample file:** `data/raw/aiaaic/sample.csv` (~2,250 rows as of exploration)
+**Sample file:** `data/raw/aiaaic/sample.csv` (~2,250 rows as of initial exploration)
 
 ### CSV structure (non-standard headers)
 
-| Row | Content | Action |
-|---|---|---|
-| 0 | Merged title row (`Incidents,,,…`) | Skip |
-| 1 | Real column names | Use as `header` |
-| 2 | Sub-header for multi-level columns | Skip |
-| 3+ | Data rows | Ingest |
+
+| Row | Content                            | Action          |
+| --- | ---------------------------------- | --------------- |
+| 0   | Merged title row (`Incidents,,,…`) | Skip            |
+| 1   | Real column names                  | Use as `header` |
+| 2   | Sub-header for multi-level columns | Skip            |
+| 3+  | Data rows                          | Ingest          |
+
 
 **pandas load:**
+
 ```python
 pd.read_csv(url, header=1, skiprows=[2])
 ```
@@ -147,26 +147,26 @@ pd.read_csv(url, header=1, skiprows=[2])
 
 ### Normalization notes
 
-| Our field | AIAAIC source |
-|---|---|
-| `source` | `"AIAAIC"` |
-| `source_id` | `AIAAIC ID#` (e.g. `AIAAIC2264`) |
-| `title` | `Headline` |
-| `description` | `Summary/links` |
-| `incident_date` | `Occurred` (often year only, e.g. `2026`) |
-| `vendor` | `Deployer` or `Developer` |
-| `system` | `System name` or `Technology` |
-| `severity` | Derive from `External harm (taxonomy)` / `Consequence (taxonomy)` |
-| `atlas_technique` | Heuristic from `Ethical issue (taxonomy)` |
-| `tags` | Taxonomy columns + `Technology` |
-| `url` | Parse first link from `Summary/links` or construct from AIAAIC site slug |
-| `raw` | Full CSV row as dict |
+
+| My field          | AIAAIC source                                                            |
+| ----------------- | ------------------------------------------------------------------------ |
+| `source`          | `"AIAAIC"`                                                               |
+| `source_id`       | `AIAAIC ID#` (e.g. `AIAAIC2264`)                                         |
+| `title`           | `Headline`                                                               |
+| `description`     | `Summary/links`                                                          |
+| `incident_date`   | `Occurred` (often year only, e.g. `2026`)                                |
+| `vendor`          | `Deployer` or `Developer`                                                |
+| `system`          | `System name` or `Technology`                                            |
+| `severity`        | Derive from `External harm (taxonomy)` / `Consequence (taxonomy)`        |
+| `atlas_technique` | Heuristic from `Ethical issue (taxonomy)`                                |
+| `tags`            | Taxonomy columns + `Technology`                                          |
+| `url`             | Parse first link from `Summary/links` or construct from AIAAIC site slug |
+| `raw`             | Full CSV row as dict                                                     |
+
 
 ### Quirks
 
-- `Occurred` is often just a year, not full date.
 - Many optional fields are sparse (`NaN` for Deployer, System name).
-- Must follow redirects (`curl -L`) when downloading.
 - License: CC BY-SA 4.0, attribute AIAAIC in exports.
 
 ---
@@ -205,14 +205,15 @@ matrices:
 
 ### Role in pipeline
 
-ATLAS is the **classification layer**, not an incident source. Used to:
+ATLAS is the **classification layer**. Used to:
+
 - Map incidents from other sources to `atlas_technique` / `atlas_tactic`
 - Power `GET /atlas/techniques` frequency endpoint
 - Flag `unmapped` records for manual review
 
 ### Quirks
 
-- Download at ingest/setup time (don't commit the YAML, gitignored).
+- Download at ingest/setup time (YAML, gitignored).
 - Technique IDs use `AML.T####` format; tactics use `AML.TA####`.
 - Sub-techniques reference parent via `subtechnique-of`.
 
@@ -223,14 +224,7 @@ ATLAS is the **classification layer**, not an incident source. Used to:
 1. **Date precision varies:** NVD has full timestamps; AIID has dates; AIAAIC often has year only.
 2. **Vendor/system extraction is messy:** Each source uses different fields, normalization logic will be source-specific.
 3. **Severity is heterogeneous:** CVSS scores (NVD) vs qualitative taxonomies (AIID/AIAAIC), needs `severity_normalization.md`.
-4. **AIID access is the hardest:** Plan on Playwright or a scheduled browser session for ingestion.
-5. **Deduplication across sources:** Same real-world event may appear in AIID and AIAAIC with different IDs, cross-source dedup is a Phase 4+ problem (title/date fuzzy match).
+4. **Deduplication across sources:** Same real-world event may appear in AIID and AIAAIC with different IDs, cross-source dedup is a problem to be solved on later iterations (title/date fuzzy match).
 
 ---
 
-## Suggested connector build order
-
-1. `atlas.py`, static YAML loader (no network after download)
-2. `aiaaic.py`, single CSV URL, pandas parse
-3. `nvd.py`, REST with API key + rate limiting
-4. `aiid.py`, Playwright + GraphQL pagination

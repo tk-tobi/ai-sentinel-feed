@@ -13,7 +13,9 @@ import pandas as pd
 import streamlit as st
 
 from sentinel.dashboard.data import load_incidents, resolve_api_url
+from sentinel.dashboard.reference import CVSS_SCORE_MAP, QUALITATIVE_SIGNAL_MAP, SEVERITY_SCALE
 from sentinel.models import UNMAPPED_TECHNIQUE
+from sentinel.sources.atlas import load_atlas
 
 st.set_page_config(page_title="ai-sentinel-feed", layout="wide")
 st.title("ai-sentinel-feed")
@@ -29,6 +31,17 @@ else:
 @st.cache_data(ttl=300)
 def cached_incidents():
     return load_incidents()
+
+
+@st.cache_data(ttl=3600)
+def cached_atlas_techniques():
+    return {
+        tech.id: {
+            "name": tech.name,
+            "tactic": tech.tactic_names[0] if tech.tactic_names else None,
+        }
+        for tech in load_atlas().list_techniques()
+    }
 
 
 def _display_dataframe(df: pd.DataFrame) -> pd.DataFrame:
@@ -97,6 +110,42 @@ if vendor_query:
 if search_query:
     mask = filtered["title"].str.contains(search_query, case=False, na=False)
     filtered = filtered[mask]
+
+with st.expander("Reference: severity normalization", expanded=False):
+    st.caption("Shared five-point scale used across NVD, AIID, and AIAAIC.")
+    st.dataframe(pd.DataFrame(SEVERITY_SCALE), use_container_width=True, hide_index=True)
+    left_ref, right_ref = st.columns(2)
+    with left_ref:
+        st.markdown("**NVD (CVSS v3.1)**")
+        st.dataframe(pd.DataFrame(CVSS_SCORE_MAP), use_container_width=True, hide_index=True)
+    with right_ref:
+        st.markdown("**AIID / AIAAIC (keyword heuristics)**")
+        st.dataframe(pd.DataFrame(QUALITATIVE_SIGNAL_MAP), use_container_width=True, hide_index=True)
+
+with st.expander("Reference: ATLAS techniques in this dataset", expanded=False):
+    atlas_lookup = cached_atlas_techniques()
+    technique_counts = (
+        filtered.loc[filtered["atlas_technique"] != UNMAPPED_TECHNIQUE, "atlas_technique"]
+        .value_counts()
+        .reset_index(name="incidents")
+    )
+    technique_counts.columns = ["technique_id", "incidents"]
+    if technique_counts.empty:
+        st.info("No mapped ATLAS techniques for the current filters.")
+    else:
+        technique_counts["name"] = technique_counts["technique_id"].map(
+            lambda tid: atlas_lookup.get(tid, {}).get("name", "")
+        )
+        technique_counts["tactic"] = technique_counts["technique_id"].map(
+            lambda tid: atlas_lookup.get(tid, {}).get("tactic")
+        )
+        st.dataframe(
+            _display_dataframe(
+                technique_counts[["technique_id", "name", "tactic", "incidents"]]
+            ),
+            use_container_width=True,
+            hide_index=True,
+        )
 
 st.subheader("Incident volume over time")
 volume = (
