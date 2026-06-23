@@ -19,8 +19,8 @@ RUN apt-get update \
 
 WORKDIR /app
 
-COPY requirements.docker.txt .
-RUN pip install --no-cache-dir -r requirements.docker.txt
+COPY requirements/ requirements/
+RUN pip install --no-cache-dir -r requirements/docker.txt
 
 COPY sentinel ./sentinel
 COPY docker ./docker

@@ -10,7 +10,7 @@ Split work across focused PRs on `feat/production-deploy` (or stacked branches).
 |------|---------|
 | `docker/Dockerfile.api` | Slim FastAPI for App Runner |
 | `docker/Dockerfile.ingest` | Playwright + ingest for ECS Fargate |
-| `requirements.api.txt` / `requirements.ingest.txt` | Image-specific deps |
+| `requirements/api.txt`, `requirements/ingest.txt` | Image-specific deps |
 | `infra/scripts/push_ecr.sh` | Build + push to ECR after `terraform apply` |
 
 **After merge:** `terraform apply` → `./infra/scripts/push_ecr.sh dev`

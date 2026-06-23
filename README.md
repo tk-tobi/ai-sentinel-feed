@@ -275,7 +275,8 @@ ai-sentinel-feed/
 ├── docker-compose.local.yml   # pull pre-built all-in-one image
 ├── docker-compose.build.yml   # optional: build from source
 ├── .env.example
-└── requirements.txt
+├── requirements/          # dev.txt, docker.txt, api.txt, ingest.txt
+├── requirements.txt       # shim → requirements/dev.txt
 ```
 
 ---

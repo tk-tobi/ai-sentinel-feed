@@ -1,0 +1,2 @@
+# Production API image (App Runner)
+-r docker.txt
