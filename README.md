@@ -1,6 +1,6 @@
 # ai-sentinel-feed
 
-A data pipeline that continuously collects, normalizes, and exposes documented AI failures, vulnerabilities, and adversarial incidents from public sources. Structured and accessible for visualization, analysis, search, and downstream ML use.
+A data pipeline that collects, normalizes, and exposes documented AI failures, vulnerabilities, and adversarial incidents from public sources. Structured for visualization, analysis, search, and downstream ML use.
 
 ---
 
@@ -8,23 +8,25 @@ A data pipeline that continuously collects, normalizes, and exposes documented A
 
 AI incident data is scattered. Vulnerability databases, academic trackers, and adversarial ML research each capture a different slice of this problem space. `ai-sentinel-feed` pulls data from all of them, normalizes records against a shared schema mapped to the [MITRE ATLAS](https://atlas.mitre.org/) adversarial ML taxonomy, and exposes the unified dataset through a REST API, an interactive dashboard, JSONL exports, and [HuggingFace Hub](https://huggingface.co/datasets/tk-tobi/ai-sentinel-feed).
 
-This is a living feed, not a one-time scrape. New records are ingested on a daily schedule; each export is timestamped. A natural downstream use case is evaluation question sets for frontier model benchmarking.
+The pipeline is designed as a living feed: run ingest on a schedule and each export is timestamped. A natural downstream use case is evaluation question sets for frontier model benchmarking.
 
 **Design principle:** The **ingest pipeline** and **API / consumption layer** are separate. They share storage (Postgres) but deploy, scale, and fail independently. Ingest runs as a batch job (Playwright for AIID, long NVD fetches); the API is stateless and read-only. See the architecture diagram below.
 
+**Status:** The hosted AWS stack (App Runner API, RDS, ECS ingest) and Streamlit Cloud dashboard have been torn down. The project remains fully runnable locally via the published Docker image, and the dataset remains on HuggingFace. For a future CDC project on this corpus, see [docs/cdc_jumpstart.md](docs/cdc_jumpstart.md).
+
 ---
 
-## Live demo
+## Available artifacts
 
-All endpoints are live and ready to use.
+| Surface | URL |
+| ------- | --- |
+| HuggingFace dataset | [tk-tobi/ai-sentinel-feed](https://huggingface.co/datasets/tk-tobi/ai-sentinel-feed) |
+| Docker image (API + dashboard + seeded Postgres) | [`ghcr.io/tk-tobi/ai-sentinel-feed:latest`](https://github.com/tk-tobi/ai-sentinel-feed/pkgs/container/ai-sentinel-feed) |
 
-
-| Surface               | URL                                                                                              |
-| --------------------- | ------------------------------------------------------------------------------------------------ |
-| API (Swagger)         | [hkfxqsyja3.us-east-2.awsapprunner.com/docs](https://hkfxqsyja3.us-east-2.awsapprunner.com/docs) |
-| Dashboard (Streamlit) | [ai-sentinel-feed.streamlit.app](https://ai-sentinel-feed-cyqzy7tg4wnzumoxm3oglh.streamlit.app/) |
-| HuggingFace dataset   | [tk-tobi/ai-sentinel-feed](https://huggingface.co/datasets/tk-tobi/ai-sentinel-feed)             |
-
+```python
+from datasets import load_dataset
+ds = load_dataset("tk-tobi/ai-sentinel-feed")
+```
 
 ---
 
@@ -40,13 +42,11 @@ docker run -d \
   ghcr.io/tk-tobi/ai-sentinel-feed:latest
 ```
 
-
 | Service   | URL                                                      |
 | --------- | -------------------------------------------------------- |
 | API       | [http://localhost:8000](http://localhost:8000)           |
 | API docs  | [http://localhost:8000/docs](http://localhost:8000/docs) |
 | Dashboard | [http://localhost:8501](http://localhost:8501)           |
-
 
 Postgres starts inside the container; ~4.4k seeded incidents load on first boot. Data persists in the `sentinel_pgdata` volume.
 
@@ -97,15 +97,11 @@ flowchart LR
     pg --> dash
 ```
 
+### Production (AWS) — archived
 
+A full AWS deploy was run in `us-east-2` (RDS, ECS Fargate ingest on EventBridge, App Runner API, S3, Secrets Manager, Streamlit Cloud). That stack has been torn down. Terraform under [infra/terraform/](infra/terraform/) remains if you want to recreate it.
 
-### Production (AWS, dev environment live)
-
-**API (App Runner):** `https://hkfxqsyja3.us-east-2.awsapprunner.com`  
-Health: `GET /health` → `{"status":"ok"}`
-
-
-| Layer            | Local (Docker)          | Local (from source)                  | AWS (dev)                          |
+| Layer            | Local (Docker)          | Local (from source)                  | AWS (optional recreate)            |
 | ---------------- | ----------------------- | ------------------------------------ | ---------------------------------- |
 | App + DB         | **Single image** (GHCR) | `docker compose` Postgres + Python   | **RDS** + **App Runner**           |
 | Ingest scheduler | N/A (pre-seeded)        | Manual / cron                        | **EventBridge** (daily)            |
@@ -113,13 +109,10 @@ Health: `GET /health` → `{"status":"ok"}`
 | Raw storage      | baked seed              | `data/raw/`                          | **S3**                             |
 | Structured       | embedded Postgres       | Docker Postgres                      | **RDS PostgreSQL**                 |
 | Exports          | -                       | `data/exports/`                      | **S3**                             |
-| API              | `:8000` in container    | `uvicorn`                            | **App Runner** ✓                   |
-| Dashboard        | `:8501` in container    | `streamlit run`                      | **Streamlit Cloud** ✓ (via API)    |
+| API              | `:8000` in container    | `uvicorn`                            | **App Runner**                     |
+| Dashboard        | `:8501` in container    | `streamlit run`                      | Streamlit Cloud (via API)          |
 | Secrets          | defaults in image       | `.env`                               | **Secrets Manager**                |
-| ML access        | -                       | local JSONL                          | **HuggingFace Hub** ✓              |
-
-
-Infrastructure is defined in [infra/terraform/](infra/terraform/). Spin up and tear down:
+| ML access        | -                       | local JSONL                          | **HuggingFace Hub** ✓ (kept)       |
 
 ```bash
 ./infra/scripts/apply.sh dev      # infra → ECR push → App Runner
@@ -128,12 +121,13 @@ Infrastructure is defined in [infra/terraform/](infra/terraform/). Spin up and t
 
 See [infra/terraform/README.md](infra/terraform/README.md) for details.
 
+**Note:** AWS App Runner is closed to new customers (existing accounts can still use it). Prefer ECS Express Mode or ECS + ALB if recreating the API layer on a new account after April 2026.
+
 ---
 
 ## Data Sources
 
-### Live Sources
-
+### Round 1 sources
 
 | Source                                                     | What it contributes                                                                                |
 | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
@@ -142,10 +136,9 @@ See [infra/terraform/README.md](infra/terraform/README.md) for details.
 | [AIAAIC](https://www.aiaaic.org)                           | Documented AI controversies and algorithmic harms, catches incidents outside technical DBs         |
 | [MITRE ATLAS](https://github.com/mitre-atlas/atlas-data)   | Adversarial ML tactic/technique taxonomy, classification layer across all sources                  |
 
-
 Source exploration notes: [docs/source_exploration.md](docs/source_exploration.md)
 
-### Potential Sources
+### Round 2 (planned)
 
 GitHub Issues · HuggingFace Advisories · ArXiv · News/RSS
 
@@ -188,7 +181,7 @@ Every record, regardless of source, is normalized into a shared structure:
 
 ### API
 
-FastAPI: read-only, no ingest logic. Live docs: see [Live demo](#live-demo). Local base URL: `http://localhost:8000`
+FastAPI: read-only, no ingest logic. Local base URL: `http://localhost:8000` (also on port 8000 in the GHCR image).
 
 ```
 GET /health                     # health check
@@ -209,7 +202,7 @@ uvicorn sentinel.api.main:app --reload
 
 ### Dashboard
 
-Streamlit dashboard: volume charts, severity distribution, ATLAS frequency, vendor×tactic heatmap, searchable incidents, plus reference tables for severity normalization and ATLAS technique mapping. Live app: see [Live demo](#live-demo).
+Streamlit dashboard: volume charts, severity distribution, ATLAS frequency, vendor×tactic heatmap, searchable incidents, plus reference tables for severity normalization and ATLAS technique mapping. Runs locally or inside the GHCR image (port 8501); the hosted Streamlit Cloud app has been removed.
 
 ```bash
 # Local (from source)
@@ -217,7 +210,7 @@ streamlit run sentinel/dashboard/app.py
 # or: ./scripts/run_dashboard.sh
 
 # Docker: included in ghcr.io/tk-tobi/ai-sentinel-feed (port 8501)
-# Production: Streamlit Community Cloud, set secret `SENTINEL_API_URL` to App Runner URL
+# Optional hosted deploy: Streamlit Community Cloud with secret SENTINEL_API_URL
 ```
 
 ### Data dumps & HuggingFace
@@ -235,13 +228,13 @@ jailbreaks.jsonl                 # jailbreak / prompt-injection tagged records
 manifest_{timestamp}.json        # export metadata
 ```
 
-**HuggingFace Hub** (sync after each full ingest, or manually):
+**HuggingFace Hub** (dataset kept published):
 
 ```bash
-# From production API (no RDS access needed)
 export HF_TOKEN=hf_...
-python -m sentinel.pipeline.huggingface \
-  --api-url https://hkfxqsyja3.us-east-2.awsapprunner.com
+
+# From a running local/API endpoint
+python -m sentinel.pipeline.huggingface --api-url http://localhost:8000
 
 # From local Postgres after export
 python -m sentinel.pipeline.export --hub
@@ -272,7 +265,7 @@ ai-sentinel-feed/
 │   └── scripts/           # apply.sh, teardown.sh
 ├── scripts/               # historical_load, run_api, run_dashboard, export_docker_seed
 ├── data/raw|exports|atlas/
-├── docs/
+├── docs/                  # source notes, severity, cdc_jumpstart.md
 ├── tests/
 ├── .github/workflows/     # docker-publish.yml → GHCR
 ├── docker-compose.yml     # Postgres only (dev ingest)
@@ -306,6 +299,9 @@ docker compose up -d            # Postgres on POSTGRES_PORT (default 5433 in .en
 # Full historical load (or use pre-seeded Docker image instead)
 ./scripts/historical_load.sh
 
+# Or load from the bundled seed (~4.4k incidents)
+python -m sentinel.pipeline.seed --force
+
 # Re-apply ATLAS mapping after rule changes
 python -m sentinel.pipeline.remap_atlas
 
@@ -328,22 +324,23 @@ AIAAIC_CSV_URL=https://docs.google.com/spreadsheets/d/.../export?format=csv&gid=
 DATABASE_URL=postgresql://sentinel:sentinel@localhost:5432/sentinel
 ```
 
-`NVD_API_KEY` is strongly recommended, unauthenticated NVD requests are slow (~6s between calls).
+`NVD_API_KEY` is strongly recommended; unauthenticated NVD requests are slow (~6s between calls).
 
 ---
 
-## Production deployment
+## Production deployment (optional recreate)
 
+Terraform can recreate the AWS stack. The previous `dev` environment has been destroyed.
 
-| Component     | Service                   | Status (dev)                                                      |
-| ------------- | ------------------------- | ----------------------------------------------------------------- |
-| Ingest job    | ECS Fargate + EventBridge | Provisioned; nightly sync includes HF publish when `HF_TOKEN` set |
-| API           | AWS App Runner            | **Live:** see `terraform output api_service_url`                  |
-| Database      | RDS PostgreSQL            | **Loaded** (~4.3k incidents)                                      |
-| Raw / exports | S3                        | Provisioned                                                       |
-| Dashboard     | Streamlit Cloud           | **Live**                                                          |
-| ML dataset    | HuggingFace Hub           | Publish via `python -m sentinel.pipeline.huggingface`             |
-
+| Component     | Service                   | Status                                      |
+| ------------- | ------------------------- | ------------------------------------------- |
+| Ingest job    | ECS Fargate + EventBridge | Torn down; recreate via Terraform           |
+| API           | AWS App Runner            | Torn down                                   |
+| Database      | RDS PostgreSQL            | Torn down                                   |
+| Raw / exports | S3                        | Torn down                                   |
+| Dashboard     | Streamlit Cloud           | Deleted                                     |
+| ML dataset    | HuggingFace Hub           | **Kept:** [tk-tobi/ai-sentinel-feed](https://huggingface.co/datasets/tk-tobi/ai-sentinel-feed) |
+| Local demo    | GHCR                      | **Kept:** `ghcr.io/tk-tobi/ai-sentinel-feed:latest` |
 
 ### Deploy workflow
 
@@ -357,7 +354,7 @@ eval "$(aws configure export-credentials --format env)"
 # Or recover a partial deploy:
 ./infra/scripts/finish_api_deploy.sh dev --skip-push
 
-# 3. Push container images (API already pushed if App Runner is live)
+# 3. Push container images
 ./infra/scripts/push_ecr.sh dev              # both images
 ./infra/scripts/push_ecr.sh dev --api-only   # API only
 ./infra/scripts/push_ecr.sh dev --ingest-only  # ingest only (large Playwright image)
@@ -370,7 +367,7 @@ curl "$(cd infra/terraform/environments/dev && terraform output -raw api_service
 curl "$(cd infra/terraform/environments/dev && terraform output -raw api_service_url)/incidents?page_size=1"
 ```
 
-**Teardown (dev):** `./infra/scripts/teardown.sh dev` uses `skip_final_snapshot` and `force_destroy` on buckets.
+**Teardown (dev):** `./infra/scripts/teardown.sh dev` uses `skip_final_snapshot` and `force_destroy` on buckets. Remember to `eval "$(aws configure export-credentials --format env)"` after `aws login` so Terraform can authenticate.
 
 Image definitions: `docker/Dockerfile.api` (App Runner), `docker/Dockerfile.ingest` (ECS).  
 Detailed infra notes: [infra/terraform/README.md](infra/terraform/README.md).
@@ -394,6 +391,7 @@ Detailed infra notes: [infra/terraform/README.md](infra/terraform/README.md).
 - Server-side dashboard filters instead of loading the full dataset client-side
 - Full-text search API, webhooks/RSS for new critical incidents, API versioning (`/v1/`)
 - Next.js dashboard on Vercel calling the public API
+- Migrate API hosting from App Runner to ECS Express Mode / ECS + ALB
 
 ---
 
